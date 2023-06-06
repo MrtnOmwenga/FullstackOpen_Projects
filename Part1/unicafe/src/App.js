@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+// Comment
+
 const Button = ({onClick, text}) => <button onClick={onClick}> {text} </button>
 const StatisticLine = ({text, value}) => {
   return (
