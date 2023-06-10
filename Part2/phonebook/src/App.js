@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import React from 'react'
+import { useState, useEffect } from 'react'
+import phonebook from './services/phonebook'
 
 const PersonForm = ({onSubmit, nameValue, nameChange, numberValue, numberChange }) => {
   return (
@@ -12,7 +14,7 @@ const PersonForm = ({onSubmit, nameValue, nameChange, numberValue, numberChange 
             Number: <input value={numberValue} onChange={numberChange}/>
           </div>
           <div>
-            <button type="submit">add</button>
+            <button type="submit">Add</button>
           </div>
         </form>
       </div>
@@ -28,19 +30,30 @@ const Filter = ({value, onChange}) => {
   )
 }
 
-const Persons = ({personsToDisplay}) => personsToDisplay.map((person) => <p key={person.id}>{person.name} {person.number}</p>)
+const Persons = ({personsToDisplay, onClick}) => {
+  return (
+    <div key="Persons">
+      {personsToDisplay.map((person) => {
+        return (
+            <p key={person.id}>{person.name} {person.number} &ensp;
+            <button onClick={() => onClick(person.id)}>Delete</button></p>
+        )
+      })}
+    </div>
+  )
+}
 
 const App = () => {
   // States
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '57-99-1231234', id: 1},
-    { name: 'Ada Lovelace', number: '39-44-5323523', id: 2 },
-    { name: 'Dan Abramov', number: '12-43-234345', id: 3 },
-    { name: 'Mary Poppendieck', number: '39-23-6423122', id: 4 }
-  ])
+  const [persons, setPersons] = useState([])
   const [newName, setNewName] = useState('')
   const [newPhoneNumber, setNewPhoneNumber] = useState('36-44-1231234')
   const [searchFilter, setSearchFilter] =useState('')
+
+  // Populate persons
+  useEffect(() => {
+    phonebook.getAll().then(response => setPersons(response))
+  }, [])
 
   // Handle Submitting form
   const handleSubmit = (event) => {
@@ -56,8 +69,10 @@ const App = () => {
         id: persons.length + 1
       }
   
-      setPersons(persons.concat(newObject))
-      setNewName('')
+      phonebook.addPerson(newObject).then(response => {
+        setPersons(persons.concat(response))
+        setNewName('')
+      })
     }
 
   }
@@ -74,10 +89,22 @@ const App = () => {
 
   // Handle search filter
   const handleSearchFilter =(event) => {
-    setSearchFilter(event.target.value.toLowerCase())
+    setSearchFilter(event.target.value)
   }
 
-  const filteredData = persons.filter((person) => person.name.toLowerCase() === searchFilter)
+  //Delete person from phonebook
+  const deletePerson = (id) => {
+    const person = persons.filter(person => person.id === id)
+    person.map(person => {
+      if (window.confirm(`Delete ${person.name} ?`)) {
+        phonebook.deletePerson(id)
+        const newObject = persons.filter(person => person.id !== id)
+        setPersons(newObject)
+      }
+    })
+  }
+
+  const filteredData = persons.filter((person) => person.name.toLowerCase() === searchFilter.toLowerCase())
   const personsToDisplay = filteredData.length === 0 ? persons : filteredData
 
   return (
@@ -86,7 +113,7 @@ const App = () => {
       <Filter value={searchFilter} onChange={handleSearchFilter}/>
       <PersonForm onSubmit={handleSubmit} nameValue={newName} nameChange={handleName} numberValue={newPhoneNumber} numberChange={handlePhoneNumber}/>
       <h2>Numbers</h2>
-      <Persons personsToDisplay={personsToDisplay}/>
+      <Persons personsToDisplay={personsToDisplay} onClick={deletePerson}/>
     </div>
   )
 }
