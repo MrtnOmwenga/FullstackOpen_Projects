@@ -1,6 +1,7 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
 import phonebook from './services/phonebook'
+import './index.css'
 
 const PersonForm = ({onSubmit, nameValue, nameChange, numberValue, numberChange }) => {
   return (
@@ -43,12 +44,38 @@ const Persons = ({personsToDisplay, onClick}) => {
   )
 }
 
+const ErrorNotification = ({ message }) => {
+  if (message === null) {
+    return null
+  }
+
+  return (
+    <div className='error'>
+      {message}
+    </div>
+  )
+}
+
+const SuccessNotification = ({ message }) => {
+  if (message === null) {
+    return null
+  }
+
+  return (
+    <div className='success'>
+      {message}
+    </div>
+  )
+}
+
 const App = () => {
   // States
   const [persons, setPersons] = useState([])
   const [newName, setNewName] = useState('')
   const [newPhoneNumber, setNewPhoneNumber] = useState('36-44-1231234')
   const [searchFilter, setSearchFilter] =useState('')
+  const [errorMessage, setErrorMessage] = useState(null)
+  const [successMessage, setSuccessMessage] = useState(null)
 
   // Populate persons
   useEffect(() => {
@@ -61,7 +88,20 @@ const App = () => {
     const exists = persons.find((person) => person.name === newName)
     if (exists !== undefined)
     {
-      alert(newName + " is already added to phonebook")
+      if (exists.number === newPhoneNumber) {
+        alert(newName + " is already added to phonebook")
+      } else {
+        if (window.confirm(`${newName} is already added to phonebook; replace old number with new one?`)) {
+          phonebook.updatePhonebook(exists.id, {...exists, number: newPhoneNumber}).then(response => {
+            setPersons(persons.map(person => person.id !== exists.id ? person : response))
+          }).catch(error => {
+            setErrorMessage(`Information of ${exists.name} has alredy been removed from server`)
+            setTimeout(() => {
+              setErrorMessage(null)
+            }, 5000)
+          })
+        }
+      }
     } else {
       const newObject = {
         name: newName,
@@ -71,6 +111,10 @@ const App = () => {
   
       phonebook.addPerson(newObject).then(response => {
         setPersons(persons.concat(response))
+        setSuccessMessage(`Added ${response.name}`)
+        setTimeout(() => {
+          setSuccessMessage(null)
+        }, 5000)
         setNewName('')
       })
     }
@@ -110,6 +154,8 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <ErrorNotification message={errorMessage}/>
+      <SuccessNotification message={successMessage}/>
       <Filter value={searchFilter} onChange={handleSearchFilter}/>
       <PersonForm onSubmit={handleSubmit} nameValue={newName} nameChange={handleName} numberValue={newPhoneNumber} numberChange={handlePhoneNumber}/>
       <h2>Numbers</h2>

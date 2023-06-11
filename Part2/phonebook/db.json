@@ -19,6 +19,21 @@
       "name": "Lenny Kravitz",
       "number": "36-44-1231234",
       "id": 4
+    },
+    {
+      "name": "Kevin Cozner",
+      "number": "36-44-1231244",
+      "id": 5
+    },
+    {
+      "name": "Anne Frank",
+      "number": "36-44-1231234",
+      "id": 6
+    },
+    {
+      "name": "Lewis Hamilton",
+      "number": "36-44-1231234",
+      "id": 7
     }
   ]
 }
