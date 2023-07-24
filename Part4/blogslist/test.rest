@@ -2,9 +2,9 @@ POST http://localhost:3001/api/blogs
 Content-Type: application/json
 
 {
-    "title": "Hackr",
+    "title": "HoneyPot.cult",
     "author": "Community",
-    "url": "https://hackr.io/blog",
+    "url": "https://cult.honeypot.io/reads",
     "likes": 0
 }
 
