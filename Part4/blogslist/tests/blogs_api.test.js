@@ -1,21 +1,61 @@
 const supertest = require('supertest');
 const mongoose = require('mongoose');
 const app = require('../app');
-const helper = require('./helper');
+const helper = require('./blogs_helper');
 const Blog = require('../models/blogs');
 const log = require('../utils/logger');
+const { ObjectId } = require('mongodb');
 
 const api = supertest(app);
+
+const Login = async () => {
+  const CurrUser = {
+    username: '_kevinlacey',
+    password: 'KevinLacey123'
+  };
+  const login = await api.post('/api/login').send(CurrUser);
+  return {
+    token: 'Bearer ' + login.body.token,
+    id: login.body.id
+  };
+};
 
 beforeEach(async () => {
   await Blog.deleteMany({});
   log.info('Cleared database');
 
-  const PromiseArray = helper.initialBlogs
-    .map(object => new Blog(object))
+  const InitialBlogs = helper.initialBlogs
+    .map(async(object) => {
+      return new Blog({
+        ...object,
+        user: await helper.RandomUser()
+      });
+    });
+  
+  const UpdatedBlogs = await Promise.all(InitialBlogs);
+  const PromiseArray = UpdatedBlogs
     .map(blogObject => blogObject.save());
 
   await Promise.all(PromiseArray);
+
+  const token = await Login();
+  const UsersBlog = new Blog({
+    title: 'Users To Be Deleted',
+    author: '_',
+    url: 'https://to_be_deleted.com',
+    likes: 0,
+    user: new ObjectId(token.id)
+  });
+  const NotUsersBlog = new Blog({
+    title: 'Not Users To Be Deleted',
+    author: '_',
+    url: 'https://to_be_deleted.com',
+    likes: 0,
+    user: new ObjectId('64c02e09a9cdd526b3196efc')
+  });
+
+  await UsersBlog.save();
+  await NotUsersBlog.save();
 }, 100000);
 
 describe('Getting data from database', () => {
@@ -25,7 +65,7 @@ describe('Getting data from database', () => {
       .expect(200)
       .expect('Content-Type', /application\/json/);
 
-    expect(response.body).toHaveLength(helper.initialBlogs.length);
+    expect(response.body).toHaveLength(helper.initialBlogs.length + 2);
   });
 
   test('blog object defines id not _id', async () => {
@@ -36,28 +76,31 @@ describe('Getting data from database', () => {
   });
 });
 
-describe('Posting data to database', () => {
+describe('Posting data to database',  () => {
   test('a valid blog can be added', async () => {
+    const token = await Login();
     const newBlog = {
       title: 'HoneyPot.cult',
       author: 'Community',
       url: 'https://cult.honeypot.io/reads',
-      likes: 0
+      likes: 0,
     };
 
     await api
       .post('/api/blogs')
       .send(newBlog)
+      .set('authorization', token.token)
       .expect(201)
       .expect('Content-Type', /application\/json/);
 
     const response = await api.get('/api/blogs');
-    expect(response.body).toHaveLength(helper.initialBlogs.length + 1);
+    expect(response.body).toHaveLength(helper.initialBlogs.length + 3);
     const titles = response.body.map(blog => blog.title);
     expect(titles).toContain(newBlog.title);
   });
 
   test('blogs have likes added by default', async () => {
+    const token = await Login();
     const newBlog = {
       title: 'HackerRank',
       author: 'Community',
@@ -67,6 +110,7 @@ describe('Posting data to database', () => {
     const createdBlog = await api
       .post('/api/blogs')
       .send(newBlog)
+      .set('authorization', token.token)
       .expect(201)
       .expect('Content-Type', /application\/json/);
 
@@ -80,10 +124,12 @@ describe('Posting data to database', () => {
 
   test('POST request without title or url returns 400 Bad Request',
     async () => {
+      const token = await Login();
+
       const sansTitle = {
         author: 'Unknown',
         url: 'https://placeholder.com',
-        likes: 0
+        likes: 0,
       };
 
       const sansUrl = {
@@ -94,31 +140,79 @@ describe('Posting data to database', () => {
 
       await api.post('/api/blogs')
         .send(sansTitle)
+        .set('authorization', token.token)
         .expect(400);
 
       await api.post('/api/blogs')
         .send(sansUrl)
+        .set('authorization', token.token)
         .expect(400);
     });
+
+  test('Request rejected when wrong token is passed', async () => {
+    const newBlog = {
+      title: 'HoneyPot.cult',
+      author: 'Community',
+      url: 'https://cult.honeypot.io/reads',
+      likes: 0,
+    };
+
+    const result = await api
+      .post('/api/blogs')
+      .send(newBlog)
+      .set('authorization', 'randomassortmentoflettersandnumbers1234')
+      .expect(400);
+
+    expect(result.body.error).toBeDefined();
+  });
 });
 
-describe('deletion of a note', () => {
-  test('succeeds with status code 204 if id is valid', async () => {
-    const blogsAtStart = await helper.blogsInDB();
-    const blogsToDelete = blogsAtStart[0];
-    
+describe('Deletion of a note', () => {
+  test('Succeeds with status code 204 if id is valid', async () => {
+    const token = await Login();
+    const BlogsAtStart = await helper.blogsInDB();
+    const BlogToDelete = await Blog.find({title: 'Users To Be Deleted'});
+
     await api
-      .delete(`/api/blogs/${blogsToDelete.id}`)
+      .delete(`/api/blogs/${BlogToDelete[0].id}`)
+      .set('authorization', token.token)
       .expect(204);
   
-    const blogsAtEnd = await helper.blogsInDB();
+    const BlogsAtEnd = await helper.blogsInDB();
   
-    expect(blogsAtEnd.length).toBeGreaterThanOrEqual(
-      helper.initialBlogs.length - 1
+    expect(BlogsAtEnd.length).toBe(
+      BlogsAtStart.length - 1
     );
   
-    const titles = blogsAtEnd.map(r => r.title);
-    expect(titles).not.toContain(blogsToDelete.title);
+    const titles = BlogsAtEnd.map(r => r.title);
+    expect(titles).not.toContain(BlogToDelete.title);
+  });
+
+  test('Doesnt succeed if Blog wasnt posted by user', async () => {
+    const token = await Login();
+    const BlogToDelete = await Blog.find({title: 'Not Users To Be Deleted'});
+
+    const result = await api
+      .delete(`/api/blogs/${BlogToDelete[0].id}`)
+      .set('authorization', token.token)
+      .expect(405);
+
+    expect(result.body.error).toBeDefined();
+  });
+
+  test('Doesnt succeed if wrong token is passed', async () => {
+    const BlogsAtStart = await helper.blogsInDB();
+    const BlogToDelete = await Blog.find({title: 'Users To Be Deleted'});
+
+    await api
+      .delete(`/api/blogs/${BlogToDelete[0].id}`)
+      .set('authorization', 'randomassortmentoflettersandnumbers1234')
+      .expect(400);
+  
+    const BlogsAtEnd = await helper.blogsInDB();
+  
+    expect(BlogsAtEnd.length).toBe(BlogsAtStart.length);
+  
   });
 });
 

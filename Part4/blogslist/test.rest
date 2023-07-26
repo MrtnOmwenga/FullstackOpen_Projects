@@ -13,3 +13,12 @@ GET http://localhost:3001/api/blogs
 
 ###
 DELETE  http://localhost:3001/api/blogs/64bc2f6d2b6f64b794a42b27
+
+###
+POST http://localhost:3001/api/login
+Content-Type: application/json
+
+{
+    "username": "_kevinlacey",
+    "password": "KevinLacey123"
+}
