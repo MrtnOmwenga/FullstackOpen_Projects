@@ -14,12 +14,11 @@ const Blog = ({blog, UpdateBlog, DeleteBlog}) => {
 
   return (
     <div>
-      {blog.title}
+      {blog.title} by {blog.author}
       <Togglable buttonLabel="View">
         <div>
           <p> {blog.url} <br/>
         likes: {blog.likes} <button onClick={Like}> Like </button><br/>
-            {blog.author} <br/>
             <button onClick={Delete}> Delete Blog </button></p>
         </div>
       </Togglable>

@@ -18,7 +18,11 @@ const BlogForm = ({addBlog}) => {
   return (
     <form onSubmit={handleSubmit}>
       <table>
-        <thead> Create New Blog </thead>
+        <thead>
+          <tr>
+            <th>Create New Blog</th>
+          </tr>
+        </thead>
         <tbody>
           <tr>
             <th> Title </th>
